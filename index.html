@@ -1,0 +1,122 @@
+﻿<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نتائج مدرسة الظواهرية</title>
+    <style>
+        :root { --primary: #1a5fb4; --secondary: #27ae60; --dark: #1a1a1a; --gold: #d4af37; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; direction: rtl; margin: 0; padding: 10px; }
+        .header { background: #1a1a1a; color: white; padding: 20px; text-align: center; border-bottom: 4px solid var(--gold); border-radius: 10px; margin-bottom: 20px; }
+        .main-tabs { display: flex; max-width: 600px; margin: 0 auto; background: #ddd; border-radius: 10px 10px 0 0; overflow: hidden; }
+        .main-tab { flex: 1; padding: 15px; cursor: pointer; text-align: center; font-weight: bold; }
+        .main-tab.active { background: white; color: var(--primary); border-top: 4px solid var(--primary); }
+        .card { max-width: 600px; margin: 0 auto; background: white; padding: 25px; border-radius: 0 0 10px 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 2px solid #ddd; border-radius: 8px; font-size: 18px; text-align: center; box-sizing: border-box; }
+        button { background: var(--primary); color: white; border: none; padding: 15px; border-radius: 8px; cursor: pointer; font-size: 18px; width: 100%; font-weight: bold; }
+        #res { margin-top: 20px; display: none; }
+        .info-box { background: #fef9e7; padding: 15px; border-radius: 8px; border-right: 5px solid var(--gold); text-align: right; margin-bottom: 15px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #eee; padding: 10px; text-align: center; }
+        .total-row { background: #fff9e6; font-weight: bold; color: #c0392b; }
+        #loader { display: none; margin: 10px; font-weight: bold; color: var(--primary); }
+        .sub-btn { padding: 8px 15px; border: 1px solid #ccc; border-radius: 5px; cursor: pointer; margin: 2px; display: inline-block; font-size: 14px; }
+        .sub-btn.active { background: var(--secondary); color: white; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>إدارة الحسينية التعليمية</h1>
+    <h2>مدرسة الظواهرية للتعليم الأساسي</h2>
+</div>
+
+<div class="main-tabs">
+    <div id="tabSchool" class="main-tab active" onclick="switchMain('school')">صفوف النقل</div>
+    <div id="tabPrep" class="main-tab" onclick="switchMain('prep')">الشهادة الإعدادية</div>
+</div>
+
+<div class="card">
+    <div id="schoolSelector">
+        <div id="subBtn1" class="sub-btn active" onclick="setSub(1, this)">الأول الإعدادي</div>
+        <div id="subBtn2" class="sub-btn" onclick="setSub(2, this)">الثاني الإعدادي</div>
+    </div>
+    <input type="number" id="seatInput" placeholder="أدخل رقم الجلوس هنا">
+    <button onclick="getResults()">بحث عن النتيجة</button>
+    <div id="loader">⏳ جاري التحميل...</div>
+    <div id="res">
+        <div id="info" class="info-box"></div>
+        <table>
+            <thead><tr><th>المادة</th><th>الدرجة</th></tr></thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const links = {
+        prep3: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSbnUGQbyb5wzO9niMAjbZL2ylT2c3BhOsM_FJfQQgDhM0qqi4E0fXswfZs5g9QWkGO7hdKXBt2PBvZ/pub?output=csv',
+        prep2: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQh7eF7_FUOpgxYV21YDNQHIfyICTaqHSgh5amFkkXTpBmJdaoo-p31BuwmOzOHT7fJj8QFZVpJk8pe/pub?output=csv',
+        prep1: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ5D73qMZI-_z6xXKHlVD_JEgcdrp__GCy-zkXooalXq7YbiJTVCEjsLgt89q0L_A/pub?output=csv'
+    };
+
+    let currentMode = 'prep1';
+
+    function switchMain(mode) {
+        document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
+        if(mode === 'school') {
+            document.getElementById('tabSchool').classList.add('active');
+            document.getElementById('schoolSelector').style.display = 'block';
+            setSub(1, document.getElementById('subBtn1'));
+        } else {
+            document.getElementById('tabPrep').classList.add('active');
+            document.getElementById('schoolSelector').style.display = 'none';
+            currentMode = 'prep3';
+        }
+    }
+
+    function setSub(grade, el) {
+        currentMode = 'prep' + grade;
+        document.querySelectorAll('.sub-btn').forEach(b => b.classList.remove('active'));
+        el.classList.add('active');
+    }
+
+    async function getResults() {
+        const seat = document.getElementById('seatInput').value.trim();
+        if(!seat) return alert("اكتب رقم الجلوس");
+        const loader = document.getElementById('loader');
+        const resDiv = document.getElementById('res');
+        loader.style.display = "block";
+        resDiv.style.display = "none";
+
+        try {
+            const response = await fetch(links[currentMode] + '&t=' + new Date().getTime());
+            const text = await response.text();
+            const rows = text.split('\n').map(row => row.split(',').map(c => c.trim().replace(/"/g, '')));
+            const headers = rows[0];
+            let student = rows.find((r, i) => i > 0 && (r[0] === seat || r[1] === seat || r[2] === seat));
+
+            if(student) {
+                let html = "";
+                let startCol = (currentMode === 'prep3') ? 4 : 3;
+                for(let i = startCol; i < headers.length; i++) {
+                    if(headers[i] && headers[i].length > 1) {
+                        let isTotal = headers[i].includes("مجموع");
+                        html += `<tr class="${isTotal ? 'total-row' : ''}"><td>${headers[i]}</td><td>${student[i] || '0'}</td></tr>`;
+                    }
+                }
+                document.getElementById('info').innerHTML = `<b>الاسم:</b> ${student[1]} <br><b>رقم الجلوس:</b> ${seat}`;
+                document.getElementById('tableBody').innerHTML = html;
+                resDiv.style.display = "block";
+            } else {
+                alert("رقم الجلوس غير موجود");
+            }
+        } catch (e) {
+            alert("خطأ في البيانات");
+        } finally {
+            loader.style.display = "none";
+        }
+    }
+</script>
+</body>
+</html>
